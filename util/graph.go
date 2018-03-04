@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 )
 
 type Node struct {
@@ -10,6 +11,7 @@ type Node struct {
 	largest   uint64
 	nodeEdges []*Node
 	messages  chan uint64
+	mu        sync.Mutex
 }
 
 type Leader struct {
@@ -20,6 +22,7 @@ type Leader struct {
 type Graph struct {
 	// a basic graph type that contains a list of references to associated nodes.
 	nodes []*Node
+	done  chan bool
 }
 
 func (graph *Graph) CreateRandomGraph(nodeNumber int) {
@@ -87,32 +90,46 @@ func (n *Node) getEdgeIds() []uint64 {
 	return edgeIds
 }
 
+var wg sync.WaitGroup
+
 func (graph *Graph) BroadcastNodeInfo() {
+
+	// var graphWg sync.WaitGroup
 	for _, node := range graph.nodes {
+		// graphWg.Add(1)
+
 		go node.messageEdges()
 	}
+	// graphWg.Wait()
+	wg.Wait()
+
 }
 
+// receive message from queue - adjust largest if necessary
+// TODO: to prevent race condition lock value while it is being pulled from the queue
+// does this go routine exit prematurely and messages may be pushed on to the channel after it has exited -
+// large diameter graphs
+
 func (n *Node) messageEdges() {
-	// receive message from queue - adjust largest if necessary
-	// TODO: to prevent race condition lock value while it is being pulled from the queue
-	// does this go routine exit prematurely and messages may be pushed on to the channel after it has exited -
-	// large diameter graphs
+	wg.Add(1)
 	go n.announceLargest()
+
 	for message := range n.messages {
 		if message > n.largest {
-			fmt.Printf("NODE %d New Largest ID %d\n", n.id, message)
+			n.mu.Lock()
 			n.largest = message // CONSIDER USING MUTEX FOR ALTERING THIS TO ENSURE ATOMICITY
-			// New Largest then announceLargest
+			n.mu.Unlock()
+			wg.Add(1)
 			go n.announceLargest()
 		}
 	}
 }
 
+// might be closing to early if other nodes are transfer message
 func (n *Node) announceLargest() {
+	defer wg.Done()
 	for _, e := range n.nodeEdges {
 		e.messages <- n.largest
-		// might be closing to early if other nodes are transfer message
 	}
 }
 
