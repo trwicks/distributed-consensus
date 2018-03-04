@@ -17,13 +17,15 @@ func main() {
 		fmt.Println("error exiting")
 	}
 
+	// need to name variables/files betterer
 	var graph graph.Graph
 
 	graph.CreateRandomGraph(nodeNumber)
+
 	graph.BroadcastNodeInfo()
 
-	// CHeating
-	var input string
-	fmt.Scanln(&input)
+	// CHeating - requires channel to indicate when all messages have finished sending
+	// var input string
+	// fmt.Scanln(&input)
 	graph.ConsensusResult()
 }
