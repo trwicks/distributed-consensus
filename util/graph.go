@@ -97,7 +97,7 @@ func (graph *Graph) BroadcastNodeInfo() {
 	// var graphWg sync.WaitGroup
 	for _, node := range graph.nodes {
 		// graphWg.Add(1)
-		wg.Add(1)
+
 		go node.messageEdges()
 	}
 	// graphWg.Wait()
@@ -111,13 +111,11 @@ func (graph *Graph) BroadcastNodeInfo() {
 // large diameter graphs
 
 func (n *Node) messageEdges() {
-	defer wg.Done()
 	wg.Add(1)
 	go n.announceLargest()
 
 	for message := range n.messages {
 		if message > n.largest {
-			fmt.Printf("NODE %d New Largest ID %d\n", n.id, message)
 			n.mu.Lock()
 			n.largest = message // CONSIDER USING MUTEX FOR ALTERING THIS TO ENSURE ATOMICITY
 			n.mu.Unlock()
@@ -125,19 +123,14 @@ func (n *Node) messageEdges() {
 			go n.announceLargest()
 		}
 	}
-
 }
 
 // might be closing to early if other nodes are transfer message
 func (n *Node) announceLargest() {
 	defer wg.Done()
-
 	for _, e := range n.nodeEdges {
-		n.mu.Lock()
 		e.messages <- n.largest
-		n.mu.Unlock()
 	}
-
 }
 
 func (graph *Graph) ConsensusResult() {
