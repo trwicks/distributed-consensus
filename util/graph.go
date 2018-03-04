@@ -8,9 +8,9 @@ import (
 
 type Node struct {
 	id        uint64
-	largest   uint64
+	largest   *Leader
 	nodeEdges []*Node
-	messages  chan uint64
+	messages  chan *Leader
 	mu        sync.Mutex
 }
 
@@ -33,10 +33,13 @@ func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 	for i := 0; i < nodeNumber; i++ {
 		randNumber := r.Uint64()
 		graph.nodes = append(graph.nodes, &Node{
-			id:        randNumber,
-			largest:   randNumber,
+			id: randNumber,
+			largest: &Leader{
+				id:    randNumber,
+				count: 1,
+			},
 			nodeEdges: nil,
-			messages:  make(chan uint64, nodeNumber/10),
+			messages:  make(chan *Leader, nodeNumber/10),
 		})
 	}
 
@@ -54,7 +57,7 @@ func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 		}
 
 		fmt.Println("Node edges:", len(graph.nodes[i].nodeEdges))
-		fmt.Println("Highest ID:", graph.nodes[i].largest)
+		fmt.Println("Highest ID:", graph.nodes[i].largest.id)
 		fmt.Println("================================")
 	}
 }
@@ -93,54 +96,62 @@ func (n *Node) getEdgeIds() []uint64 {
 var wg sync.WaitGroup
 
 func (graph *Graph) BroadcastNodeInfo() {
-
-	// var graphWg sync.WaitGroup
 	for _, node := range graph.nodes {
-		// graphWg.Add(1)
-
 		go node.messageEdges()
 	}
-	// graphWg.Wait()
 	wg.Wait()
-
 }
 
 // receive message from queue - adjust largest if necessary
 // TODO: to prevent race condition lock value while it is being pulled from the queue
-// does this go routine exit prematurely and messages may be pushed on to the channel after it has exited -
-// large diameter graphs
-
 func (n *Node) messageEdges() {
 	wg.Add(1)
 	go n.announceLargest()
 
 	for message := range n.messages {
-		if message > n.largest {
-			n.mu.Lock()
-			n.largest = message // CONSIDER USING MUTEX FOR ALTERING THIS TO ENSURE ATOMICITY
-			n.mu.Unlock()
+
+		if message.id > n.largest.id {
+			// n.mu.Lock()
+			n.largest.id = message.id
+			n.largest.count = message.count + 1
+			// n.mu.Unlock()
 			wg.Add(1)
 			go n.announceLargest()
 		}
 	}
 }
 
-// might be closing to early if other nodes are transfer message
 func (n *Node) announceLargest() {
 	defer wg.Done()
 	for _, e := range n.nodeEdges {
+		// DATA RACE:
+		// MUTEX USED TO ENSURE THAT ONLY 1 PROCESSES CAN WRITE TO A NODE'S CHANNEL
+		n.mu.Lock()
 		e.messages <- n.largest
+		n.mu.Unlock()
 	}
+}
+
+func getLargestNode(nodes []*Node) uint64 {
+	largest := nodes[0].id
+	for _, n := range nodes {
+		if n.id > largest {
+			largest = n.id
+		}
+	}
+	return largest
 }
 
 func (graph *Graph) ConsensusResult() {
 	nodeCounts := make(map[uint64]int)
+	largestNode := getLargestNode(graph.nodes)
 	for _, node := range graph.nodes {
-		fmt.Printf("Node Id: %d \t - Largest Node: %d\n", node.id, node.largest)
+		fmt.Printf("Node Id: %d \t - Largest Node: %d\n", node.id, node.largest.id)
 		// make a map that contains count of largests from all nodes
 		// print map for final statistics on consensus
-		nodeCounts[node.largest] += 1
+		nodeCounts[node.largest.id] += 1
 	}
+	fmt.Printf("Largest node: %d\n", largestNode)
 	fmt.Printf("Node Consensus Results:\n")
 	for k, v := range nodeCounts {
 		fmt.Printf("Node ID: %d \t Count: %d\n", k, v)
