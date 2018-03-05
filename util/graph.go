@@ -18,7 +18,6 @@ type Leader struct {
 	id    uint64
 	count uint64
 }
-
 type Graph struct {
 	// a basic graph type that contains a list of references to associated nodes.
 	nodes []*Node
@@ -99,6 +98,7 @@ func (graph *Graph) BroadcastNodeInfo() {
 	for _, node := range graph.nodes {
 		go node.messageEdges()
 	}
+	// wait before exiting to ensure all go-routines terminate cleanly
 	wg.Wait()
 }
 
@@ -106,15 +106,16 @@ func (graph *Graph) BroadcastNodeInfo() {
 // TODO: to prevent race condition lock value while it is being pulled from the queue
 func (n *Node) messageEdges() {
 	wg.Add(1)
+
 	go n.announceLargest()
 
 	for message := range n.messages {
 
 		if message.id > n.largest.id {
-			// n.mu.Lock()
+
 			n.largest.id = message.id
 			n.largest.count = message.count + 1
-			// n.mu.Unlock()
+
 			wg.Add(1)
 			go n.announceLargest()
 		}
