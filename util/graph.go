@@ -92,44 +92,60 @@ func (n *Node) getEdgeIds() []uint64 {
 	return edgeIds
 }
 
-var wg sync.WaitGroup
+// var wg sync.WaitGroup
 
 func (graph *Graph) BroadcastNodeInfo() {
 	for _, node := range graph.nodes {
+		// wg.Add(1)
 		go node.messageEdges()
 	}
 	// wait before exiting to ensure all go-routines terminate cleanly
-	wg.Wait()
+	// wg.Wait()
 }
 
 // receive message from queue - adjust largest if necessary
 // TODO: to prevent race condition lock value while it is being pulled from the queue
 func (n *Node) messageEdges() {
-	wg.Add(1)
+	// for i, edge := range n.nodeEdges {
+	// 	messages := make(chan *Leader)
 
+	// }
 	go n.announceLargest()
-
+	// largest := Leader{
+	// 	n.largest.id, n.largest.count
+	// }
+	// for
 	for message := range n.messages {
-
 		if message.id > n.largest.id {
 
 			n.largest.id = message.id
 			n.largest.count = message.count + 1
 
-			wg.Add(1)
-			go n.announceLargest()
+			// wg.Add(1)
+			// go n.announceLargest()
 		}
 	}
 }
 
+// each node that needs to pass messages to other nodes will pass a directed channel via argument in function call
+// receiving node will read messages from the channel then close the channel
+// once all messages are received then return highest value.
+func (n *Node) receiveMessage(messages <-chan *Leader) {
+	for m := range messages {
+		if m.id > n.largest.id {
+			n.messages <- m
+		}
+	}
+}
+
+// make relay message function
+
 func (n *Node) announceLargest() {
-	defer wg.Done()
+	// defer wg.Done()
 	for _, e := range n.nodeEdges {
 		// DATA RACE:
 		// MUTEX USED TO ENSURE THAT ONLY 1 PROCESSES CAN WRITE TO A NODE'S CHANNEL
-		n.mu.Lock()
 		e.messages <- n.largest
-		n.mu.Unlock()
 	}
 }
 
@@ -147,7 +163,7 @@ func (graph *Graph) ConsensusResult() {
 	nodeCounts := make(map[uint64]int)
 	largestNode := getLargestNode(graph.nodes)
 	for _, node := range graph.nodes {
-		fmt.Printf("Node Id: %d \t - Largest Node: %d\n", node.id, node.largest.id)
+		fmt.Printf("Node Id: %d \t - Largest Node: %d with count %d\n", node.id, node.largest.id, node.largest.count)
 		// make a map that contains count of largests from all nodes
 		// print map for final statistics on consensus
 		nodeCounts[node.largest.id] += 1
