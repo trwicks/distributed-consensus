@@ -166,6 +166,6 @@ func (graph *Graph) ConsensusResult() {
 	fmt.Printf("Node Consensus Results:\n")
 	for k, v := range nodeCounts {
 		percentage := v / len(graph.nodes) * 100
-		fmt.Printf("Node ID: %d \t Count: %d. \t%d percent graph consensus.", k, v, percentage)
+		fmt.Printf("Node ID: %d \t Count: %d. \t%d percent graph consensus.\n", k, v, percentage)
 	}
 }

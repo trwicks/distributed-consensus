@@ -5,10 +5,11 @@ GOTEST=$(GOCMD) test
 BINARY_NAME=distributed-consensus
 
 build: 
-    $(GOBUILD) -o $(BINARY_NAME) -v
+	$(GOBUILD) -o bin/distributed-consensus main.go
+
 test: 
-    $(GOTEST) -v ./...
+	$(GOTEST) -v ./...
 
 run:
-    $(GOBUILD) -o $(BINARY_NAME) -v ./...
-	./$(BINARY_NAME)
+	$(GOBUILD) -o $(BINARY_NAME) main.go -v ./...
+	./$(BINARY_NAME) 
