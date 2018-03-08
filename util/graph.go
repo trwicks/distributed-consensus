@@ -7,7 +7,7 @@ import (
 )
 
 type Node struct {
-	id        uint64		`json:"Id"`
+	Id        uint64		`json:"Id"`
 	largest   *Leader		`json:"Largest"`
 	nodeEdges []*Node		`json:"NodeEdges"`
 	messages  chan *Leader
@@ -15,7 +15,7 @@ type Node struct {
 }
 
 type Leader struct {
-	id    uint64
+	Id    uint64
 	count uint64
 }
 type Graph struct {
@@ -39,9 +39,9 @@ func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 	for i := 0; i < nodeNumber; i++ {
 		randNumber := r.Uint64()
 		graph.nodes = append(graph.nodes, &Node{
-			id: randNumber,
+			Id: randNumber,
 			largest: &Leader{
-				id:    randNumber,
+				Id:    randNumber,
 				count: 1,
 			},
 			nodeEdges: nil,
@@ -52,7 +52,7 @@ func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 	fmt.Println("Graph size:", len(graph.nodes))
 
 	for i := 0; i < len(graph.nodes); i++ {
-		fmt.Println("Node ID:", graph.nodes[i].id)
+		fmt.Println("Node Id:", graph.nodes[i].Id)
 
 		// assign edges for each edge until number of edges = 1/10 * number of nodes connected
 		for len(graph.nodes[i].nodeEdges) < calcEdgeNumber(nodeNumber) {
@@ -64,7 +64,7 @@ func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 
 		// logging information
 		fmt.Println("Node edges:", len(graph.nodes[i].nodeEdges))
-		// fmt.Println("Highest ID:", graph.nodes[i].largest.id)
+		// fmt.Println("Highest Id:", graph.nodes[i].largest.Id)
 		fmt.Println("================================")
 	}
 
@@ -96,7 +96,7 @@ func addEdge(n1, n2 *Node) {
 func (n *Node) getEdgeIds() []uint64 {
 	var edgeIds []uint64
 	for _, edgeId := range n.nodeEdges {
-		edgeIds = append(edgeIds, edgeId.id)
+		edgeIds = append(edgeIds, edgeId.Id)
 	}
 	return edgeIds
 }
@@ -117,9 +117,9 @@ func (graph *Graph) BroadcastNodeInfo() {
 func (n *Node) messageEdges() {
 	go n.announceLargest()
 	for message := range n.messages {
-		if message.id > n.largest.id {
+		if message.Id > n.largest.Id {
 
-			n.largest.id = message.id
+			n.largest.Id = message.Id
 			n.largest.count = message.count + 1
 
 			// Messaging process can continue but the graph is highly connected
@@ -134,7 +134,7 @@ func (n *Node) messageEdges() {
 // once all messages are received then return highest value.
 func (n *Node) receiveMessage(messages <-chan *Leader) {
 	for m := range messages {
-		if m.id > n.largest.id {
+		if m.Id > n.largest.Id {
 			n.messages <- m
 		}
 	}
@@ -152,10 +152,10 @@ func (n *Node) announceLargest() {
 }
 
 func getLargestNode(nodes []*Node) uint64 {
-	largest := nodes[0].id
+	largest := nodes[0].Id
 	for _, n := range nodes {
-		if n.id > largest {
-			largest = n.id
+		if n.Id > largest {
+			largest = n.Id
 		}
 	}
 	return largest
@@ -165,9 +165,17 @@ func (graph *Graph) ConsensusResult() Results {
 	largestNode := getLargestNode(graph.nodes)
 
 	results := Results{
-		Nodes: nil,
+		Nodes: graph.nodes,
 		Stats: make(map[uint64]int),
 	}
+	// for _, node := range graph.nodes {
+	// 	results.Nodes = append(results.Nodes, &Node{
+	// 		Id: node.Id,
+	// 		largest: node.largest,
+	// 		nodeEdges: node.nodeEdges,
+	// 		messages:  nil,
+	// 	})
+	// }
 	// results.Nodes = graph.nodes
 	// for _, node := range results.Nodes {
 	// 	fmt.Println(node)
@@ -175,17 +183,17 @@ func (graph *Graph) ConsensusResult() Results {
 
 	for _, node := range graph.nodes {
 		// logging info:
-		fmt.Printf("Node Id: %d \t - Largest Known Node: %d with count %d\n", node.id, node.largest.id, node.largest.count)
+		fmt.Printf("Node Id: %d \t - Largest Known Node: %d with count %d\n", node.Id, node.largest.Id, node.largest.count)
 		// make a map that contains count of largests from all nodes
 		// print map for final statistics on consensus
-		results.Stats[node.largest.id] += 1
+		results.Stats[node.largest.Id] += 1
 	}
 	fmt.Printf("Largest node: %d\n", largestNode)
 	fmt.Printf("Node Consensus Results:\n")
 	for k, v := range results.Stats {
 		percentage := v / len(graph.nodes) * 100
 	
-		fmt.Printf("Node ID: %d \t Count: %d. \t%d percent graph consensus.\n", k, v, percentage)
+		fmt.Printf("Node Id: %d \t Count: %d. \t%d percent graph consensus.\n", k, v, percentage)
 	}
 	fmt.Println(results.Stats)
 	return results
