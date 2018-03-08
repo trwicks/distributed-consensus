@@ -21,7 +21,7 @@ Ensure your GOPATH and GOROOT environment variables are set.
 To run the code once dependencies are installed simply run the following command:
 ```$bash
 $ go get github.com/wickst/distributed-consensus
-$ cd $GOPATH/src/wickst/distributed-consensus
+$ cd $GOPATH/src/github.com/wickst/distributed-consensus
 $ make
 $ ./distributed-consensus-{system-os} {number of nodes} // e.g. 67
 ```
