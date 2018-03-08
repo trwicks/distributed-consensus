@@ -7,9 +7,9 @@ import (
 )
 
 type Node struct {
-	id        uint64
-	largest   *Leader
-	nodeEdges []*Node
+	id        uint64		`json:"Id"`
+	largest   *Leader		`json:"Largest"`
+	nodeEdges []*Node		`json:"NodeEdges"`
 	messages  chan *Leader
 	mu        sync.Mutex
 }
@@ -20,9 +20,16 @@ type Leader struct {
 }
 type Graph struct {
 	// a basic graph type that contains a list of references to associated nodes.
-	nodes []*Node
-	done  chan bool
+	nodes []*Node 			
+	done  chan bool 		
+	
 }
+
+type Results struct {
+	Nodes []*Node 			`json:"Nodes"`
+	Stats map[uint64]int	`json:"Stats"`
+}
+
 
 func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 
@@ -60,6 +67,7 @@ func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 		// fmt.Println("Highest ID:", graph.nodes[i].largest.id)
 		fmt.Println("================================")
 	}
+
 }
 
 func calcEdgeNumber(n int) int {
@@ -102,6 +110,7 @@ func (graph *Graph) BroadcastNodeInfo() {
 	}
 	// wait before exiting to ensure all go-routines terminate cleanly
 	wg.Wait()
+	fmt.Println("Doing pushup on 100s")
 }
 
 // Send out messages to associated nodes. Receive messages from queue - adjust largest known if necessary and resend if updated.
@@ -152,20 +161,32 @@ func getLargestNode(nodes []*Node) uint64 {
 	return largest
 }
 
-func (graph *Graph) ConsensusResult() {
-	nodeCounts := make(map[uint64]int)
+func (graph *Graph) ConsensusResult() Results {
 	largestNode := getLargestNode(graph.nodes)
+
+	results := Results{
+		Nodes: nil,
+		Stats: make(map[uint64]int),
+	}
+	// results.Nodes = graph.nodes
+	// for _, node := range results.Nodes {
+	// 	fmt.Println(node)
+	// }
+
 	for _, node := range graph.nodes {
 		// logging info:
 		fmt.Printf("Node Id: %d \t - Largest Known Node: %d with count %d\n", node.id, node.largest.id, node.largest.count)
 		// make a map that contains count of largests from all nodes
 		// print map for final statistics on consensus
-		nodeCounts[node.largest.id] += 1
+		results.Stats[node.largest.id] += 1
 	}
 	fmt.Printf("Largest node: %d\n", largestNode)
 	fmt.Printf("Node Consensus Results:\n")
-	for k, v := range nodeCounts {
+	for k, v := range results.Stats {
 		percentage := v / len(graph.nodes) * 100
+	
 		fmt.Printf("Node ID: %d \t Count: %d. \t%d percent graph consensus.\n", k, v, percentage)
 	}
+	fmt.Println(results.Stats)
+	return results
 }
