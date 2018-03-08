@@ -1,7 +1,7 @@
 package main
 
 import (
-	"distributed-consensus/util"
+	"github.com/wickst/distributed-consensus/util"
 	"fmt"
 	"os"
 	"strconv"

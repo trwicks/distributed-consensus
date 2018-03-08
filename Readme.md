@@ -22,8 +22,8 @@ To run the code once dependencies are installed simply run the following command
 ```$bash
 $ cd $GOPATH/src
 $ git clone https://github.com/wickst/distributed-consensus.git
-$ make build
-$ ./bin/distributed-consensus {number of nodes} // e.g. 67
+$ make 
+$ ./distributed-consensus-{system-os} {number of nodes} // e.g. 67
 ```
 
 ### Dependencies
