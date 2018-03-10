@@ -41,7 +41,7 @@ func (a *App) getGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println(nodeCount)
-	// var graph graph.Graph
+	nodes = new(graph.Node)
 	// graph.CreateRandomGraph(nodeCount)
 
 	// graph.BroadcastNodeInfo()
