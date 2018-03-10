@@ -2,45 +2,59 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/wickst/distributed-consensus/util"
-	"strconv"
 	"fmt"
-    "log"
-    "net/http"
-    "github.com/gorilla/mux"
+	"log"
+	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
-func GetGraph(w http.ResponseWriter, r *http.Request) {
+func (a *App) initializeRoutes() {
+	a.Router.HandleFunc("/graph/{nodeCount:[0-9]+}", a.getGraph).Methods("GET")
+}
+
+type App struct {
+	Router *mux.Router
+}
+
+func respondWithError(w http.ResponseWriter, code int, message string) {
+	respondWithJSON(w, code, map[string]string{"error": message})
+}
+
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+	response, _ := json.Marshal(payload)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(response)
+}
+
+func (a *App) getGraph(w http.ResponseWriter, r *http.Request) {
 
 	// need to name variables/files betterer
 
 	params := mux.Vars(r)
-	fmt.Println(params)
-	var graph graph.Graph
 	nodeCount, err := strconv.Atoi(params["nodeCount"])
 	if err != nil {
-		fmt.Println("Write code to handle this")
+		respondWithError(w, http.StatusBadRequest, "Invalid NodeCount")
+		return
 	}
-	graph.CreateRandomGraph(nodeCount)
+	fmt.Println(nodeCount)
+	// var graph graph.Graph
+	// graph.CreateRandomGraph(nodeCount)
 
-	graph.BroadcastNodeInfo()
-	
-	results := graph.ConsensusResult()
+	// graph.BroadcastNodeInfo()
+	// // var results grap
+	// results := graph.ConsensusResult()
+	respondWithJSON(w, http.StatusOK, 2)
+}
 
-	resultJson, err := json.Marshal(results)
-	if err != nil {
-        fmt.Printf("Error: %s", err)
-        return;
-	}
-	for _, nodes := range results.Nodes {
-		fmt.Println(nodes.Id)
-	}
-
-	fmt.Println(string(resultJson))
+func (a *App) Run(addr string) {
+	log.Fatal(http.ListenAndServe(":8000", a.Router))
 }
 
 func main() {
-    router := mux.NewRouter()
-    router.HandleFunc("/api/{nodeCount}", GetGraph).Methods("GET")
-    log.Fatal(http.ListenAndServe(":8000", router))
+	a := App{}
+	a.Run(":8000")
 }

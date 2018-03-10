@@ -7,29 +7,27 @@ import (
 )
 
 type Node struct {
-	Id        uint64		`json:"Id"`
-	largest   *Leader		`json:"Largest"`
-	nodeEdges []*Node		`json:"NodeEdges"`
+	ID        uint64  `json:"ID"`
+	Largest   *Leader `json:"Largest"`
+	NodeEdges []*Node `json:"NodeEdges"`
 	messages  chan *Leader
 	mu        sync.Mutex
 }
 
 type Leader struct {
-	Id    uint64
-	count uint64
+	ID    uint64 `json:"ID"`
+	Count uint64 `json:"Count"`
 }
 type Graph struct {
 	// a basic graph type that contains a list of references to associated nodes.
-	nodes []*Node 			
-	done  chan bool 		
-	
+	Nodes []*Node `json:"Nodes"`
+	done  chan bool
 }
 
 type Results struct {
-	Nodes []*Node 			`json:"Nodes"`
-	Stats map[uint64]int	`json:"Stats"`
+	Nodes map[uint64][]uint64
+	Stats map[uint64]int
 }
-
 
 func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 
@@ -38,33 +36,33 @@ func (graph *Graph) CreateRandomGraph(nodeNumber int) {
 	// construct graph - edges unassigned
 	for i := 0; i < nodeNumber; i++ {
 		randNumber := r.Uint64()
-		graph.nodes = append(graph.nodes, &Node{
-			Id: randNumber,
-			largest: &Leader{
-				Id:    randNumber,
-				count: 1,
+		graph.Nodes = append(graph.Nodes, &Node{
+			ID: randNumber,
+			Largest: &Leader{
+				ID:    randNumber,
+				Count: 1,
 			},
-			nodeEdges: nil,
+			NodeEdges: nil,
 			messages:  make(chan *Leader, nodeNumber/10),
 		})
 	}
 
-	fmt.Println("Graph size:", len(graph.nodes))
+	fmt.Println("Graph size:", len(graph.Nodes))
 
-	for i := 0; i < len(graph.nodes); i++ {
-		fmt.Println("Node Id:", graph.nodes[i].Id)
+	for i := 0; i < len(graph.Nodes); i++ {
+		fmt.Println("Node ID:", graph.Nodes[i].ID)
 
 		// assign edges for each edge until number of edges = 1/10 * number of nodes connected
-		for len(graph.nodes[i].nodeEdges) < calcEdgeNumber(nodeNumber) {
+		for len(graph.Nodes[i].NodeEdges) < calcEdgeNumber(nodeNumber) {
 			rN := r.Uint64() % uint64(nodeNumber)
-			if nodeInSet(rN, graph.nodes[i].getEdgeIds()) == false {
-				addEdge(graph.nodes[i], graph.nodes[rN])
+			if nodeInSet(rN, graph.Nodes[i].getEdgeIDs()) == false {
+				addEdge(graph.Nodes[i], graph.Nodes[rN])
 			}
 		}
 
 		// logging information
-		fmt.Println("Node edges:", len(graph.nodes[i].nodeEdges))
-		// fmt.Println("Highest Id:", graph.nodes[i].largest.Id)
+		fmt.Println("Node edges:", len(graph.Nodes[i].NodeEdges))
+		// fmt.Println("Highest ID:", graph.Nodes[i].largest.ID)
 		fmt.Println("================================")
 	}
 
@@ -89,22 +87,22 @@ func nodeInSet(x uint64, nodes []uint64) bool {
 }
 
 func addEdge(n1, n2 *Node) {
-	n1.nodeEdges = append(n1.nodeEdges, n2)
-	n2.nodeEdges = append(n2.nodeEdges, n1)
+	n1.NodeEdges = append(n1.NodeEdges, n2)
+	n2.NodeEdges = append(n2.NodeEdges, n1)
 }
 
-func (n *Node) getEdgeIds() []uint64 {
-	var edgeIds []uint64
-	for _, edgeId := range n.nodeEdges {
-		edgeIds = append(edgeIds, edgeId.Id)
+func (n *Node) getEdgeIDs() []uint64 {
+	var edgeIDs []uint64
+	for _, edgeID := range n.NodeEdges {
+		edgeIDs = append(edgeIDs, edgeID.ID)
 	}
-	return edgeIds
+	return edgeIDs
 }
 
 var wg sync.WaitGroup
 
 func (graph *Graph) BroadcastNodeInfo() {
-	for _, node := range graph.nodes {
+	for _, node := range graph.Nodes {
 		wg.Add(1)
 		go node.messageEdges()
 	}
@@ -117,16 +115,17 @@ func (graph *Graph) BroadcastNodeInfo() {
 func (n *Node) messageEdges() {
 	go n.announceLargest()
 	for message := range n.messages {
-		if message.Id > n.largest.Id {
+		if message.ID > n.Largest.ID {
 
-			n.largest.Id = message.Id
-			n.largest.count = message.count + 1
+			n.Largest.ID = message.ID
+			n.Largest.Count = message.Count + 1
 
 			// Messaging process can continue but the graph is highly connected
 			wg.Add(1)
 			go n.announceLargest()
 		}
 	}
+	close(n.messages)
 }
 
 // TODO: each node that needs to pass messages to other nodes will pass a directed channel via argument in function call
@@ -134,7 +133,7 @@ func (n *Node) messageEdges() {
 // once all messages are received then return highest value.
 func (n *Node) receiveMessage(messages <-chan *Leader) {
 	for m := range messages {
-		if m.Id > n.largest.Id {
+		if m.ID > n.Largest.ID {
 			n.messages <- m
 		}
 	}
@@ -144,57 +143,46 @@ func (n *Node) receiveMessage(messages <-chan *Leader) {
 
 func (n *Node) announceLargest() {
 	defer wg.Done()
-	for _, e := range n.nodeEdges {
+	for _, e := range n.NodeEdges {
 		// DATA RACE FOR DISCUSSION AND IMPROVEMENT
 		// MUTEX USED TO ENSURE THAT ONLY 1 PROCESSES CAN WRITE TO A NODE'S CHANNEL
-		e.messages <- n.largest
+		e.messages <- n.Largest
 	}
 }
 
 func getLargestNode(nodes []*Node) uint64 {
-	largest := nodes[0].Id
+	largest := nodes[0].ID
 	for _, n := range nodes {
-		if n.Id > largest {
-			largest = n.Id
+		if n.ID > largest {
+			largest = n.ID
 		}
 	}
 	return largest
 }
 
-func (graph *Graph) ConsensusResult() Results {
-	largestNode := getLargestNode(graph.nodes)
+func (graph *Graph) ConsensusResult() []*Node {
+	largestNode := getLargestNode(graph.Nodes)
 
 	results := Results{
-		Nodes: graph.nodes,
+		Nodes: make(map[uint64][]uint64),
 		Stats: make(map[uint64]int),
 	}
-	// for _, node := range graph.nodes {
-	// 	results.Nodes = append(results.Nodes, &Node{
-	// 		Id: node.Id,
-	// 		largest: node.largest,
-	// 		nodeEdges: node.nodeEdges,
-	// 		messages:  nil,
-	// 	})
-	// }
-	// results.Nodes = graph.nodes
-	// for _, node := range results.Nodes {
-	// 	fmt.Println(node)
-	// }
-
-	for _, node := range graph.nodes {
+	// GraphR := make(map[uint64][]uint64)
+	for _, node := range graph.Nodes {
 		// logging info:
-		fmt.Printf("Node Id: %d \t - Largest Known Node: %d with count %d\n", node.Id, node.largest.Id, node.largest.count)
+		fmt.Printf("Node ID: %d \t - Largest Known Node: %d with count %d\n", node.ID, node.Largest.ID, node.Largest.Count)
 		// make a map that contains count of largests from all nodes
 		// print map for final statistics on consensus
-		results.Stats[node.largest.Id] += 1
+		results.Stats[node.Largest.ID] += 1
+		for _, x := range node.NodeEdges {
+			results.Nodes[node.ID] = append(results.Nodes[node.ID], x.ID)
+		}
 	}
 	fmt.Printf("Largest node: %d\n", largestNode)
 	fmt.Printf("Node Consensus Results:\n")
 	for k, v := range results.Stats {
-		percentage := v / len(graph.nodes) * 100
-	
-		fmt.Printf("Node Id: %d \t Count: %d. \t%d percent graph consensus.\n", k, v, percentage)
+		percentage := v / len(graph.Nodes) * 100
+		fmt.Printf("Node ID: %d \t Count: %d. \t%d percent graph consensus.\n", k, v, percentage)
 	}
-	fmt.Println(results.Stats)
-	return results
+	return graph.Nodes
 }
